@@ -1,7 +1,12 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { AbstractControl, FormGroup } from '@angular/forms';
-import { CONSTANTS } from '../public-constants';
 import { Subscription } from 'rxjs/internal/Subscription';
+import { Store } from '@ngrx/store';
+
+import { CONSTANTS } from '../public-constants';
+import { passwordChange } from '../../state/actions/actions';
+import { AppState } from 'src/app/state/app.state';
+import { selectRegister } from 'src/app/state/selectors/selectors';
 
 @Component({
   selector: 'app-password-strength',
@@ -25,9 +30,12 @@ export class PasswordStrengthComponent implements OnInit {
   bar2!: string;
   bar3!: string;
 
+  constructor(private store: Store<AppState>) {}
+
   public ngOnInit(): void {
     this.initializeForm();
-    this.setBarListener();
+    this.setPasswordListener();
+    this.setStateListener();
   }
 
   private get password(): AbstractControl {
@@ -57,7 +65,8 @@ export class PasswordStrengthComponent implements OnInit {
     this.passwordDigit?.setValue(false);
   }
 
-  private setBars(password: string): void {
+  private setStatus(register: any): void {
+    const password = this.password.value;
     let score = 0;
 
     // set to initial state
@@ -74,13 +83,13 @@ export class PasswordStrengthComponent implements OnInit {
     }
 
     // check for at least one special character
-    if (CONSTANTS.SPECIAL_REGEX.test(password)) {
+    if (register.special) {
       this.passwordSpecialCharacter.setValue(true);
       score += 1;
     }
 
     // check for at least one digit
-    if (CONSTANTS.DIGIT_REGEX.test(password)) {
+    if (register.number) {
       this.passwordDigit.setValue(true);
       score += 1;
     }
@@ -94,11 +103,23 @@ export class PasswordStrengthComponent implements OnInit {
     }
   }
 
-  private setBarListener(): void {
-    // listener for user input
+  private setPasswordListener(): void {
+    // listener for user password input
     const subscription: Subscription = this.password?.valueChanges.subscribe(
-      (controlValue: string) => this.setBars(controlValue)
+      (password: string) => this.store.dispatch(passwordChange({ password }))
     );
+    this.subscriptions.push(subscription);
+  }
+
+  private setStateListener() {
+    // listener for state changes to the register slice
+    const subscription: Subscription = this.store
+      .select(selectRegister)
+      .subscribe(({ register }) => {
+        if (register) {
+          this.setStatus(register);
+        }
+      });
     this.subscriptions.push(subscription);
   }
 }
